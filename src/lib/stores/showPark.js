@@ -6,7 +6,7 @@ function createBoolean() {
 	return {
 		subscribe,
 		set: (position) => set(position),
-		update: (position) => update((state) => position),
+		update: (position) => update(() => position),
 		open: () => set(true),
 		close: () => set(false),
 	};

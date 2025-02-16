@@ -6,7 +6,7 @@ function createCurrentPosition() {
   return {
 	subscribe,
 	set: (position) => set(position),
-	update: (position) => update((state) => position),
+	update: (position) => update(() => position),
   };
 }
 
