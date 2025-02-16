@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
 	import {currentPosition, debugPosition} from "$lib/stores/currentPosition.js";
-    import {currentPark, showPark} from "$lib/stores/parkingLot.js";
+	import {currentPark, parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
 	import parkingLots from "$lib/parkingLots/data.json";
 	import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
 	import {getColorByOccupancy} from "$lib/actions/getColorByOccupancy.js";
@@ -10,6 +10,7 @@
 	let mapContainer;
 	let map;
 	let coords = [-1, -1];
+	const polygons = [];
 	const ZOOM = 17;
 
 	/**
@@ -49,10 +50,6 @@
 	    marker.on('drag', (e) => {
 		    const newPosition = e.target.getLatLng();
 		    debugPosition.set([newPosition.lat.toFixed(6), newPosition.lng.toFixed(6)]);
-		    // console.log('Marker moved to:', {
-			//     lat: newPosition.lat.toFixed(6),
-			//     lng: newPosition.lng.toFixed(6)
-		    // });
         });
     }
 
@@ -72,12 +69,52 @@
 			currentPark.set(parkingLotDetails);
         }
 
+		polygons.push({id: parkingLotDetails.id, polygon: parkingLot});
+
 		parkingLotMarker.on('click', handleParkingLotClick);
 		parkingLot.on('click', handleParkingLotClick);
     }
 
-	onMount(async () => {
+	async function autoFetchOccupancy() {
+		async function getCurrentOccupancy(id) {
+			const response = await fetch(`http://127.0.0.1:8000/api/v1/parking-occupancy/${id}`, {
+				method: 'GET',
+				headers: {
+					'Authorization': 'Basic ' + btoa('kubiczeek:xvylUhi&]%,WH@1')
+				}
+			});
 
+			if (!response.ok) {
+				throw new Error('Failed to fetch data');
+			}
+
+			const data = await response.json();
+			// console.log(data);
+
+			return data.vehicle_count;
+		}
+
+		for (const park of parkingLots) {
+			try {
+				const occupancy = await getCurrentOccupancy(park.id);
+				const freeSpaces = park.maxParkingSpaces - occupancy;
+				parkingOccupancy.change(park.id, freeSpaces, park.maxParkingSpaces);
+			} catch (error) {
+				console.error(`Error fetching occupancy for park ${park.id}:`, error);
+			}
+		}
+
+		polygons.forEach((pLot) => {
+			const find = $parkingOccupancy.find((pOcc) => pOcc.id === pLot.id);
+			if (find) {
+				pLot.polygon.setStyle({color: getColorByOccupancy(find.freeSpaces, find.maxSpaces)});
+			}
+		});
+
+		setTimeout(autoFetchOccupancy, 5000);
+	}
+
+	onMount(async () => {
 		if(browser) {
 			try {
 				const leaflet = await import('leaflet');
@@ -98,6 +135,8 @@
 				map.setView([0, 0], 2);
 			}
 		}
+
+        autoFetchOccupancy();
 	});
 
 	onDestroy(() => {

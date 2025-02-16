@@ -2,7 +2,7 @@
 	import LeafletMap from "$lib/LeafletMap.svelte";
 	import {debugPosition} from "$lib/stores/currentPosition.js";
 	import ParkOverlay from "$lib/ParkOverlay.svelte";
-	import {showPark} from "$lib/stores/parkingLot.js";
+	import {parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
 	import {notifiedOn} from "$lib/stores/notifiedOn.js";
 	import parkingLots from "$lib/parkingLots/data.json";
 	import {onMount} from "svelte";
@@ -13,14 +13,16 @@
         let coords = $debugPosition;
 		$notifiedOn.forEach((parkId) => {
 			let park = parkingLots.find((park) => park.id === parkId);
+			let currentPark = $parkingOccupancy.find((park) => park.id === parkId);
+			console.log(currentPark)
 			let distance = getDistanceFromLatLonInKm(park.center[0], park.center[1], coords[0], coords[1]);
 			if (distance < 0.2) {
 				let title = "";
 				let message = "";
-				if (park.freeParkingSpaces === 0) {
+				if (currentPark.freeSpaces === 0) {
                     title = `Parkoviště plně obsazeno!`;
                     message = `Vámi zvolené parkoviště je plně obsazeno. Prosím, vyhledejte jiné.`;
-                } else if (park.freeParkingSpaces <= (park.maxParkingSpaces/10)) {
+                } else if (currentPark.freeSpaces <= (currentPark.maxSpaces/10)) {
 					title = `Parkoviště je skoro plné.`;
 					message = `Vámi zvolené parkoviště má volných posledních pár parkovacích míst.`;
                 } else {

@@ -2,7 +2,11 @@
     import {getColorByOccupancy} from "$lib/actions/getColorByOccupancy.js";
     let { number, outOff } = $props();
 
-	let color = getColorByOccupancy(number, outOff);
+	let color = $state("");
+
+    $effect(() => {
+	    color = getColorByOccupancy(number, outOff);
+    })
 </script>
 
 <span><span class="num {color}">{number}</span>/{outOff}</span>

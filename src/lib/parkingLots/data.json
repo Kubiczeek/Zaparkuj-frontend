@@ -3,9 +3,7 @@
     "id": 1,
     "name": "GHB - Učitelé",
     "maxParkingSpaces": 90,
-    "freeParkingSpaces": 8,
     "maxHandicappedSpaces": 2,
-    "freeHandicappedSpaces": 2,
     "paidTime": "Po-Pá: 7-17",
     "prices": [
       {"time": "Prvních 30min", "price": 3},

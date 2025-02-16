@@ -4,13 +4,14 @@
     import ColorNumberText from "$lib/ColorNumberText.svelte";
     import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
     import {onMount} from "svelte";
-    import {currentPark, showPark} from "$lib/stores/parkingLot.js";
+    import {currentPark, parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
     import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
     import {debugPosition} from "$lib/stores/currentPosition.js";
     import {notifiedOn} from "$lib/stores/notifiedOn.js";
 
 	let coords = [-1, -1];
     let distance = $state(0);
+	let freeSpace = $state(0);
 
 	async function checkDistance() {
         coords = $debugPosition;// await getCurrentPosition();
@@ -56,6 +57,14 @@
 	    return timeInMinutes;
     }
 
+	function getCurrentOccupancy(id) {
+		$parkingOccupancy.forEach((park) => {
+			if (park.id === id) {
+				return freeSpace = park.freeSpaces;
+			}
+        });
+    }
+
     let expectedArrival = $derived.by(() => {
 		const now = new Date();
 		const travelTime = calculateTime(distance * 1000)
@@ -66,17 +75,18 @@
 
 	onMount(() => {
 		checkDistance();
+		getCurrentOccupancy(1);
     });
 </script>
 
-<div class="container" use:clickOutside={{ callback: () => {} }} transition:fly={{ y: 100, duration: 300 }}>
+<div class="container" use:clickOutside={{ callback: showPark.close }} transition:fly={{ y: 100, duration: 300 }}>
     <h3>Parkoviště - {$currentPark.name} <button class="close" aria-label="Close" onclick={showPark.close}>X</button></h3>
-    <p>Aktuálně volných parkovacích míst: <ColorNumberText number={$currentPark.freeParkingSpaces} outOff={$currentPark.maxParkingSpaces} /></p>
+    <p>Aktuálně volných parkovacích míst: <ColorNumberText number={freeSpace} outOff={$currentPark.maxParkingSpaces} /></p>
     <p>Vzdálenost: <strong>{Math.floor(distance * 1000)} metrů</strong></p>
     <p>Očekávaný příjezd: <strong>{expectedArrival}</strong></p>
     <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff={$currentPark.maxParkingSpaces} /></p>
-    <p>Počet míst pro invalidy: <ColorNumberText number={$currentPark.freeHandicappedSpaces} outOff={$currentPark.maxHandicappedSpaces} /></p>
-    <p>Očekávaný počet volných míst pro invalidy po příjezdu: <ColorNumberText number="2" outOff={$currentPark.maxHandicappedSpaces} /></p>
+<!--    <p>Počet míst pro invalidy: <ColorNumberText number={$currentPark.freeHandicappedSpaces} outOff={$currentPark.maxHandicappedSpaces} /></p>-->
+<!--    <p>Očekávaný počet volných míst pro invalidy po příjezdu: <ColorNumberText number="2" outOff={$currentPark.maxHandicappedSpaces} /></p>-->
     <div class="prices">
         <p>Parkovné ({$currentPark.paidTime}):</p>
         <div class="list">
