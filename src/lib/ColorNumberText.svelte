@@ -1,8 +1,8 @@
 <script>
+    import {getColorByOccupancy} from "$lib/actions/getColorByOccupancy.js";
     let { number, outOff } = $props();
 
-	const tenth = outOff / 10;
-    let color = Number(number) <= 1 ? 'red' : number <= tenth ? 'orange' : 'green';
+	let color = getColorByOccupancy(number, outOff);
 </script>
 
 <span><span class="num {color}">{number}</span>/{outOff}</span>

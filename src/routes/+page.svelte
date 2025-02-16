@@ -1,16 +1,58 @@
 <script>
 	import LeafletMap from "$lib/LeafletMap.svelte";
-	import {currentPosition} from "$lib/stores/currentPosition.js";
-	import {showPark} from "$lib/stores/showPark.js";
+	import {debugPosition} from "$lib/stores/currentPosition.js";
 	import ParkOverlay from "$lib/ParkOverlay.svelte";
+	import {showPark} from "$lib/stores/parkingLot.js";
+	import {notifiedOn} from "$lib/stores/notifiedOn.js";
+	import parkingLots from "$lib/parkingLots/data.json";
+	import {onMount} from "svelte";
+	import {sendNotification} from "$lib/actions/notifications.js";
+	import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
+
+	function checkDistance() {
+        let coords = $debugPosition;
+		$notifiedOn.forEach((parkId) => {
+			let park = parkingLots.find((park) => park.id === parkId);
+			let distance = getDistanceFromLatLonInKm(park.center[0], park.center[1], coords[0], coords[1]);
+			if (distance < 0.2) {
+				let title = "";
+				let message = "";
+				if (park.freeParkingSpaces === 0) {
+                    title = `Parkoviště plně obsazeno!`;
+                    message = `Vámi zvolené parkoviště je plně obsazeno. Prosím, vyhledejte jiné.`;
+                } else if (park.freeParkingSpaces <= (park.maxParkingSpaces/10)) {
+					title = `Parkoviště je skoro plné.`;
+					message = `Vámi zvolené parkoviště má volných posledních pár parkovacích míst.`;
+                } else {
+					title = `Parkoviště má spoustu volných míst.`;
+					message = `Vámi zvolené parkoviště má ještě spoustu volných parkovacích míst`;
+                }
+				sendNotification(title, {
+					body: message,
+                    icon: '../P.png'
+                });
+
+				// Remove the park from the list of notified parks
+                notifiedOn.remove(parkId);
+			}
+        })
+
+		setTimeout(() => {
+			checkDistance();
+        }, 5 * 1000);
+    }
+
+	onMount(() => {
+		checkDistance();
+	});
 </script>
 
 <LeafletMap></LeafletMap>
 {#if $showPark}
     <ParkOverlay/>
 {/if}
-{#if $currentPosition}
-    <p>Current marker position: latitude: {$currentPosition.lat?.toFixed(6)}, longitude: {$currentPosition.lng?.toFixed(6)}</p>
+{#if $debugPosition}
+    <p>Current marker position: latitude: {$debugPosition[0]}, longitude: {$debugPosition[1]}</p>
 {/if}
 
 <style>

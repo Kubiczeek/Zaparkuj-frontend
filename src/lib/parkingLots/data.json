@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "name": "GHB - Učitelé",
+    "maxParkingSpaces": 90,
+    "freeParkingSpaces": 8,
+    "maxHandicappedSpaces": 2,
+    "freeHandicappedSpaces": 2,
+    "paidTime": "Po-Pá: 7-17",
+    "prices": [
+      {"time": "Prvních 30min", "price": 3},
+      {"time": "Každá další hodina", "price": 15}
+    ],
+    "center": [49.608902, 15.579536],
+    "polygon": [
+      [49.608989, 15.579777],
+      [49.608791, 15.579724],
+      [49.608815, 15.579332],
+      [49.609031, 15.579370]
+    ],
+    "url": ""
+  }
+]

@@ -11,3 +11,4 @@ function createCurrentPosition() {
 }
 
 export const currentPosition = createCurrentPosition();
+export const debugPosition = createCurrentPosition();

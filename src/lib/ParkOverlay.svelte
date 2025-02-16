@@ -1,88 +1,104 @@
 <script>
     import {clickOutside} from "$lib/actions/clickOutside.js";
-    import {showPark} from "$lib/stores/showPark.js";
     import {fly} from "svelte/transition";
     import ColorNumberText from "$lib/ColorNumberText.svelte";
-    import {currentPark} from "$lib/stores/currentPark.js";
     import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
     import {onMount} from "svelte";
+    import {currentPark, showPark} from "$lib/stores/parkingLot.js";
+    import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
+    import {debugPosition} from "$lib/stores/currentPosition.js";
+    import {notifiedOn} from "$lib/stores/notifiedOn.js";
 
 	let coords = [-1, -1];
-    let distance = 0;
+    let distance = $state(0);
 
-    function requestNotificationPermission() {
-	    if ('Notification' in window) {
-		    Notification.requestPermission().then(permission => {
-			    if (permission === 'granted') {
-				    console.log('Notification permission granted.');
-			    } else {
-				    console.log('Notification permission denied.');
-			    }
-		    });
-	    } else {
-		    console.log('Notifications are not supported by this browser.');
+	async function checkDistance() {
+        coords = $debugPosition;// await getCurrentPosition();
+        distance = getDistanceFromLatLonInKm($currentPark.center[0], $currentPark.center[1], coords[0], coords[1]);
+		let clone = JSON.stringify($currentPark); // Clone the object
+		setTimeout(() => {
+			if ($showPark && clone === JSON.stringify($currentPark)) {
+                checkDistance();
+            }
+		}, 5 * 1000);
+    }
+
+    function calculateTime(distanceInMeters) {
+	    let timeInMinutes = 0;
+	    let remainingDistance = distanceInMeters;
+
+	    // První segment (0-5km) při 40 km/h
+	    if (remainingDistance > 0) {
+		    const segment = Math.min(remainingDistance, 5000);
+		    timeInMinutes += (segment * 60) / (40 * 1000);
+		    remainingDistance -= segment;
 	    }
-    }
 
-    function sendNotification(title, options) {
-	    if ('Notification' in window && Notification.permission === 'granted') {
-		    new Notification(title, options);
+	    // Druhý segment (5-10km) při 57 km/h
+	    if (remainingDistance > 0) {
+		    const segment = Math.min(remainingDistance, 5000);
+		    timeInMinutes += (segment * 60) / (57 * 1000);
+		    remainingDistance -= segment;
 	    }
+
+	    // Třetí segment (10-50km) při 65 km/h
+	    if (remainingDistance > 0) {
+		    const segment = Math.min(remainingDistance, 40000);
+		    timeInMinutes += (segment * 60) / (65 * 1000);
+		    remainingDistance -= segment;
+	    }
+
+	    // Čtvrtý segment (50km+) při 70 km/h
+	    if (remainingDistance > 0) {
+		    timeInMinutes += (remainingDistance * 60) / (70 * 1000);
+	    }
+
+	    return timeInMinutes;
     }
 
-    async function getCurrentPosition() {
-	    return new Promise((resolve, reject) => {
-		    if (!navigator.geolocation) {
-			    reject(new Error("Geolocation is not supported"));
-			    return;
-		    }
+    let expectedArrival = $derived.by(() => {
+		const now = new Date();
+		const travelTime = calculateTime(distance * 1000)
+		const arrival = new Date(now.getTime() + travelTime * 60 * 1000);
+		// Return the time in the format HH:MM
+        return `${arrival.getHours().toString().padStart(2, '0')}:${arrival.getMinutes().toString().padStart(2, '0')}`;
+    });
 
-		    navigator.geolocation.getCurrentPosition(
-			    (position) => {
-				    resolve([
-					    position.coords.latitude,
-					    position.coords.longitude
-				    ]);
-			    },
-			    (error) => reject(error),
-			    {
-				    enableHighAccuracy: true,
-				    timeout: 5000,
-				    maximumAge: 0
-			    }
-		    );
-	    });
-    }
-
-	onMount(async () => {
-		coords = await getCurrentPosition();
-		distance = getDistanceFromLatLonInKm($currentPark.lat, $currentPark.lng, coords[0], coords[1]);
-    })
+	onMount(() => {
+		checkDistance();
+    });
 </script>
 
-<div class="container" use:clickOutside={{ callback: () => showPark.close() }} transition:fly={{ y: 100, duration: 300 }}>
-    <h3>Parkoviště - GHB (Učitelé) <button class="close" aria-label="Close" onclick={showPark.close}>X</button></h3>
-    <p>Aktuálně volných parkovacích míst: <ColorNumberText number="13" outOff="90" /></p>
-    <p>Vzdálenost: <strong>{parseInt(distance * 1000)} metrů</strong></p>
-    <p>Očekávaný příjezd: <strong>17:43</strong></p>
-    <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff="90" /></p>
-    <p>Počet míst pro invalidy: <ColorNumberText number="2" outOff="2" /></p>
-    <p>Očekávaný počet volných míst pro invalidy po příjezdu: <ColorNumberText number="2" outOff="2" /></p>
+<div class="container" use:clickOutside={{ callback: () => {} }} transition:fly={{ y: 100, duration: 300 }}>
+    <h3>Parkoviště - {$currentPark.name} <button class="close" aria-label="Close" onclick={showPark.close}>X</button></h3>
+    <p>Aktuálně volných parkovacích míst: <ColorNumberText number={$currentPark.freeParkingSpaces} outOff={$currentPark.maxParkingSpaces} /></p>
+    <p>Vzdálenost: <strong>{Math.floor(distance * 1000)} metrů</strong></p>
+    <p>Očekávaný příjezd: <strong>{expectedArrival}</strong></p>
+    <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff={$currentPark.maxParkingSpaces} /></p>
+    <p>Počet míst pro invalidy: <ColorNumberText number={$currentPark.freeHandicappedSpaces} outOff={$currentPark.maxHandicappedSpaces} /></p>
+    <p>Očekávaný počet volných míst pro invalidy po příjezdu: <ColorNumberText number="2" outOff={$currentPark.maxHandicappedSpaces} /></p>
     <div class="prices">
-        <p>Parkovné (po-pá: 7-17):</p>
+        <p>Parkovné ({$currentPark.paidTime}):</p>
         <div class="list">
-            <p>Prvních 30min - 3 Kč</p>
-            <p>15 Kč/h</p>
+            {#each $currentPark.prices as price}
+                <p>{price.time} - {price.price} Kč</p>
+            {/each}
         </div>
     </div>
     <button class="primary-btn" onclick={() => {
-		requestNotificationPermission();
-		sendNotification('Hello!', {
-			body: 'This is a test notification.',
-			icon: '../P.png',
-		});
+		if ($notifiedOn.includes($currentPark.id)) {
+			console.log('Removing', $currentPark.id);
+			notifiedOn.remove($currentPark.id);
+		} else {
+			console.log('Adding', $currentPark.id);
+			notifiedOn.add($currentPark.id);
+		}
     }}>
-        Notifikovat při přiblížení
+        {#if $notifiedOn.includes($currentPark.id)}
+            Zrušit oznámení
+        {:else}
+            Notifikovat při přiblížení
+        {/if}
     </button>
 </div>
 

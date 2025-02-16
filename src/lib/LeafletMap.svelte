@@ -1,46 +1,24 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { browser } from '$app/environment';
-    import {currentPosition} from "$lib/stores/currentPosition.js";
-	import {showPark} from "$lib/stores/showPark.js";
-	import {currentPark} from "$lib/stores/currentPark.js";
+	import {currentPosition, debugPosition} from "$lib/stores/currentPosition.js";
+    import {currentPark, showPark} from "$lib/stores/parkingLot.js";
+	import parkingLots from "$lib/parkingLots/data.json";
+	import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
+	import {getColorByOccupancy} from "$lib/actions/getColorByOccupancy.js";
 
 	let mapContainer;
 	let map;
-	let marker;
 	let coords = [-1, -1];
+	const ZOOM = 17;
 
-	let polygon = [
-		[49.608989, 15.579777],
-		[49.608791, 15.579724],
-		[49.608815, 15.579332],
-		[49.609031, 15.579370],
-    ]
-
-	async function getCurrentPosition() {
-		return new Promise((resolve, reject) => {
-			if (!navigator.geolocation) {
-				reject(new Error("Geolocation is not supported"));
-				return;
-			}
-
-			navigator.geolocation.getCurrentPosition(
-				(position) => {
-					resolve([
-						position.coords.latitude,
-						position.coords.longitude
-					]);
-				},
-				(error) => reject(error),
-				{
-					enableHighAccuracy: true,
-					timeout: 5000,
-					maximumAge: 0
-				}
-			);
-		});
-	}
-
+	/**
+     * Create a custom marker with an image.
+     * @param {Array} latlng - Latitude and longitude of the marker.
+     * @param {string} imageUrl - URL of the image to use as the marker.
+     * @param {Object} options - Options for the marker.
+     * @returns {L.Marker} - Custom marker.
+     */
 	function createCustomMarker(latlng, imageUrl, options = {}) {
 		const defaultOptions = {
 			iconSize: [25, 41],
@@ -62,53 +40,59 @@
 		});
 	}
 
-	function handleMarkerDrag(e) {
-		const newPosition = e.target.getLatLng();
-		currentPosition.set(newPosition);
-		console.log('Marker moved to:', {
-			lat: newPosition.lat.toFixed(6),
-			lng: newPosition.lng.toFixed(6)
-		});
-	}
-
     function createDevMarker() {
-	    marker = L.marker(coords, {
+	    let marker = L.marker(coords, {
 		    draggable: true,
 		    autoPan: true
 	    }).addTo(map);
 
-	    marker.on('drag', handleMarkerDrag);
+	    marker.on('drag', (e) => {
+		    const newPosition = e.target.getLatLng();
+		    debugPosition.set([newPosition.lat.toFixed(6), newPosition.lng.toFixed(6)]);
+		    // console.log('Marker moved to:', {
+			//     lat: newPosition.lat.toFixed(6),
+			//     lng: newPosition.lng.toFixed(6)
+		    // });
+        });
+    }
+
+	/**
+     * Create a parking lot on the map.
+     * @param {Object} parkingLotDetails - Details of the parking lot.
+     */
+	function createParkingLot(parkingLotDetails) {
+		const parkingLot = L.polygon(parkingLotDetails.polygon, {color: getColorByOccupancy(parkingLotDetails.freeParkingSpaces, parkingLotDetails.maxParkingSpaces)}).addTo(map);
+        const parkingLotMarker = createCustomMarker(parkingLotDetails.center, '../P.png', {
+	        iconSize: [22, 30],
+	        iconAnchor: [11, 30],
+        }).addTo(map);
+
+		function handleParkingLotClick() {
+			showPark.open();
+			currentPark.set(parkingLotDetails);
+        }
+
+		parkingLotMarker.on('click', handleParkingLotClick);
+		parkingLot.on('click', handleParkingLotClick);
     }
 
 	onMount(async () => {
+
 		if(browser) {
 			try {
 				const leaflet = await import('leaflet');
-				coords = await getCurrentPosition();
 
-				map = leaflet.map(mapContainer).setView(coords, 17);
+				coords = await getCurrentPosition();
+				currentPosition.set(coords);
+
+				map = leaflet.map(mapContainer).setView(coords, ZOOM);
 
 				leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 					attribution: '© OpenStreetMap contributors'
 				}).addTo(map);
 
-                const parkZone = createCustomMarker([49.608902, 15.579536], '../P.png', {
-					iconSize: [22, 30],
-                    iconAnchor: [11, 30],
-                }).addTo(map);
-
-				parkZone.on('click', () => {
-                    showPark.open();
-					currentPark.set({
-                        lat: 49.608902,
-                        lng: 15.579536
-                    })
-                });
-
-				leaflet.polygon(polygon, {color: 'red'}).addTo(map);
-
-				// createDevMarker();
-
+                parkingLots.forEach(createParkingLot);
+				createDevMarker();
 			} catch (error) {
 				console.error("Error getting location:", error.message);
 				map.setView([0, 0], 2);
@@ -118,9 +102,6 @@
 
 	onDestroy(() => {
 		if (map) {
-			if (marker) {
-				marker.off('dragend', handleMarkerDrag);
-			}
 			map.remove();
 		}
 	});
