@@ -24,6 +24,8 @@
 		]
 	},
 	"dependencies": {
-		"leaflet": "^1.9.4"
+		"@sveltejs/adapter-static": "^3.0.8",
+		"leaflet": "^1.9.4",
+		"vite-plugin-pwa": "^0.21.1"
 	}
 }
