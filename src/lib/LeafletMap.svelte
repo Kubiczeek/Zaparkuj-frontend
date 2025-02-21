@@ -10,18 +10,10 @@
 	let mapContainer;
 	let initialized = false;
 	let map;
-	let coords = [-1, -1];
 	let currentMarker;
 	const ZOOM = 17;
 	const DEFAULT_COORDS = [49.6069, 15.5793];
 
-	/**
-     * Create a custom marker with an image.
-     * @param {Array} latlng - Latitude and longitude of the marker.
-     * @param {string} imageUrl - URL of the image to use as the marker.
-     * @param {Object} options - Options for the marker.
-     * @returns {L.Marker} - Custom marker.
-     */
 	function createCustomMarker(latlng, imageUrl, options = {}) {
 		const defaultOptions = {
 			iconSize: [25, 41],
@@ -43,7 +35,7 @@
 	}
 
     function createDevMarker() {
-	    let marker = L.marker(coords, {
+	    let marker = L.marker(DEFAULT_COORDS, {
 		    draggable: true,
 		    autoPan: true
 	    }).addTo(map);
@@ -54,10 +46,6 @@
         });
     }
 
-	/**
-     * Create a parking lot on the map.
-     * @param {Object} parkingLotDetails - Details of the parking lot.
-     */
 	function createParkingLot(parkingLotDetails) {
 		const parkingLot = L.polygon(parkingLotDetails.polygon, {color: getColorByOccupancy(parkingLotDetails?.freeParkingSpaces, parkingLotDetails?.maxParkingSpaces)}).addTo(map);
         const parkingLotMarker = createCustomMarker(parkingLotDetails.center, '../P.png', {
@@ -97,13 +85,7 @@
                     maxZoom: 18
 				}).addTo(map);
 
-				currentMarker = createCustomMarker(coords, '../current.png', {
-					iconSize: [66, 66],
-                    iconAnchor: [33, 33],
-                }).addTo(map);
-
                 parkingLots.forEach(createParkingLot);
-				// createDevMarker();
 			} catch (error) {
 				console.error("Error getting location:", error.message);
 				map.setView([0, 0], 2);
@@ -123,16 +105,16 @@
 
 		currentPosition.subscribe((coords) => {
 			if (map && coords) {
-				currentMarker.setLatLng(coords);
-
 				if (!initialized) {
+                    initialized = true;
                     map.setView(coords, ZOOM);
 					currentMarker = createCustomMarker(coords, '../current.png', {
 						iconSize: [66, 66],
 						iconAnchor: [33, 33],
 					}).addTo(map);
-                    initialized = true;
                 }
+
+				currentMarker.setLatLng(coords);
 			}
         });
 

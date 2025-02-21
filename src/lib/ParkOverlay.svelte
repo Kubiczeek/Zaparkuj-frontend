@@ -2,8 +2,8 @@
     import {clickOutside} from "$lib/actions/clickOutside.js";
     import {fly} from "svelte/transition";
     import ColorNumberText from "$lib/ColorNumberText.svelte";
-    import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
-    import {onMount} from "svelte";
+    import {getDistanceFromLatLonInKm, calculateTime} from "$lib/actions/calculateDistances.js";
+    import {onDestroy, onMount} from "svelte";
     import {currentPark, parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
     import {currentPosition, geoPermission} from "$lib/stores/currentPosition.js";
     import {notifiedOn} from "$lib/stores/notifiedOn.js";
@@ -11,42 +11,7 @@
     let distance = $state(0);
 	let freeSpace = $state(0);
 
-	function checkDistance(coords) {
-        distance = getDistanceFromLatLonInKm($currentPark.center[0], $currentPark.center[1], coords[0], coords[1]);
-    }
-
-    function calculateTime(distanceInMeters) {
-	    let timeInMinutes = 0;
-	    let remainingDistance = distanceInMeters;
-
-	    // První segment (0-5km) při 40 km/h
-	    if (remainingDistance > 0) {
-		    const segment = Math.min(remainingDistance, 5000);
-		    timeInMinutes += (segment * 60) / (40 * 1000);
-		    remainingDistance -= segment;
-	    }
-
-	    // Druhý segment (5-10km) při 57 km/h
-	    if (remainingDistance > 0) {
-		    const segment = Math.min(remainingDistance, 5000);
-		    timeInMinutes += (segment * 60) / (57 * 1000);
-		    remainingDistance -= segment;
-	    }
-
-	    // Třetí segment (10-50km) při 65 km/h
-	    if (remainingDistance > 0) {
-		    const segment = Math.min(remainingDistance, 40000);
-		    timeInMinutes += (segment * 60) / (65 * 1000);
-		    remainingDistance -= segment;
-	    }
-
-	    // Čtvrtý segment (50km+) při 70 km/h
-	    if (remainingDistance > 0) {
-		    timeInMinutes += (remainingDistance * 60) / (70 * 1000);
-	    }
-
-	    return timeInMinutes;
-    }
+	let unsubscribes = [];
 
 	function handleNotification() {
 		Notification.requestPermission().then(permission => {
@@ -62,13 +27,11 @@
 		});
     }
 
-	function getCurrentOccupancy(id) {
-		$parkingOccupancy.forEach((park) => {
-			if (park.id === id) {
-				return freeSpace = park.freeSpaces;
-			}
-        });
+    function getCurrentOccupancy(id) {
+	    const park = $parkingOccupancy.find(park => park.id === id);
+	    freeSpace = park ? park.freeSpaces : 0;
     }
+
 
     let expectedArrival = $derived.by(() => {
 		const now = new Date();
@@ -79,13 +42,17 @@
     });
 
 	onMount(() => {
-		currentPosition.subscribe((coords) => {
+		unsubscribes.push(currentPosition.subscribe((coords) => {
             if (coords && $geoPermission) {
-                checkDistance(coords);
+	            distance = getDistanceFromLatLonInKm($currentPark.center[0], $currentPark.center[1], coords[0], coords[1]);
             }
-        });
-		getCurrentOccupancy(1);
+        }));
+		getCurrentOccupancy($currentPark.id);
     });
+
+	onDestroy(() => {
+		unsubscribes.forEach(unsubscribe => unsubscribe());
+    })
 </script>
 
 <div class="container" use:clickOutside={{ callback: showPark.close }} transition:fly={{ y: 100, duration: 300 }}>

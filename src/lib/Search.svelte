@@ -3,23 +3,15 @@
     import { magnifier } from "$lib/assets/images";
 	import parkingLots from "$lib/parkingLots/data.json";
 	import { currentPark, showPark } from "$lib/stores/parkingLot.js";
-	import { getDistanceFromLatLonInKm } from "$lib/actions/calculateHaversin.js";
+	import { getDistanceFromLatLonInKm } from "$lib/actions/calculateDistances.js";
 	import {mapBounds, polygons} from "$lib/stores/map.js";
 	import {currentPosition} from "$lib/stores/currentPosition.js";
+	import {onMount} from "svelte";
 
 	let searchTerm = "";
+	let parkingLotsWithDistance = [];
 
-	$: filteredParkingLots = parkingLots
-	.map(park => ({
-		...park,
-		distance: getDistanceFromLatLonInKm(
-			park.center[0],
-			park.center[1],
-			$currentPosition[0],
-			$currentPosition[1]
-		)
-	}))
-	.filter(park =>
+	$: filteredParkingLots = parkingLotsWithDistance.filter(park =>
 		park.name.toLowerCase().includes(searchTerm.toLowerCase())
 	);
 
@@ -27,7 +19,7 @@
 		return distance < 1 ? `${Math.round(distance * 1000)}m daleko` : `${distance.toFixed(1)} km daleko`;
 	}
 
-	function handleParkingSelect(park) {
+	function selectParkingLot(park) {
 		currentPark.set(park);
 		showPark.open();
 		$polygons.forEach((polygon) => {
@@ -37,6 +29,20 @@
         })
 		searchTerm = "";
 	}
+
+	onMount(() => {
+		currentPosition.subscribe((coords) => {
+			parkingLotsWithDistance = parkingLots.map(park => ({
+				...park,
+				distance: getDistanceFromLatLonInKm(
+					park.center[0],
+					park.center[1],
+					coords[0],
+					coords[1]
+				)
+			}));
+		});
+    })
 </script>
 
 <div class="search-wrapper">
@@ -51,7 +57,7 @@
                 <button class="result-item"
                         in:fade|local={{duration: 150, delay: 100}}
                         out:fade|local={{duration: 100}}
-                        onclick={() => handleParkingSelect(park)}
+                        onclick={() => selectParkingLot(park)}
                 >
                     <span class="name">{park.name}</span>
                     <span class="distance">{formatDistance(park.distance)}</span>

@@ -7,42 +7,48 @@
 	import {notifiedOn} from "$lib/stores/notifiedOn.js";
 	import {onDestroy, onMount} from "svelte";
 	import {sendNotification} from "$lib/actions/notifications.js";
-	import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
+	import {getDistanceFromLatLonInKm} from "$lib/actions/calculateDistances.js";
 	import {getAllParkingLotIds} from "$lib/actions/getAllParkingLotIds.js";
 	import {getCurrentOccupancy} from "$lib/actions/fetchCurrentOccupancy.js";
 	import {watchPosition} from "$lib/actions/geolocation.js";
 	import Search from "$lib/Search.svelte";
 
 	let watchId;
+	let intervalId;
+
+	function getNotificationMessage(park, occupancyData) {
+		let title = "";
+		let message = "";
+		if (occupancyData.freeSpaces === 0) {
+			title = `Parkoviště plně obsazeno!`;
+			message = `Vámi zvolené parkoviště je plně obsazeno. Prosím, vyhledejte jiné.`;
+		} else if (occupancyData.freeSpaces <= Math.min(10, occupancyData.maxSpaces / 5)) {
+			title = `Parkoviště je skoro plné.`;
+			message = `Vámi zvolené parkoviště má volných posledních pár parkovacích míst.`;
+		} else {
+			title = `Parkoviště má spoustu volných míst.`;
+			message = `Vámi zvolené parkoviště má ještě spoustu volných parkovacích míst`;
+		}
+		return { title, message };
+	}
 
 	function handleParkingNotifications(coords) {
 		$notifiedOn.forEach((parkId) => {
 			let park = parkingLots.find((park) => park.id === parkId);
-			let currentPark = $parkingOccupancy.find((park) => park.id === parkId);
+			let occupancyData = $parkingOccupancy.find((park) => park.id === parkId);
 			let distance = getDistanceFromLatLonInKm(park.center[0], park.center[1], coords[0], coords[1]);
 			if (distance < 0.2) {
-				let title = "";
-				let message = "";
-				if (currentPark.freeSpaces === 0) {
-                    title = `Parkoviště plně obsazeno!`;
-                    message = `Vámi zvolené parkoviště je plně obsazeno. Prosím, vyhledejte jiné.`;
-                } else if (currentPark.freeSpaces <= (currentPark.maxSpaces/10)) {
-					title = `Parkoviště je skoro plné.`;
-					message = `Vámi zvolené parkoviště má volných posledních pár parkovacích míst.`;
-                } else {
-					title = `Parkoviště má spoustu volných míst.`;
-					message = `Vámi zvolené parkoviště má ještě spoustu volných parkovacích míst`;
-                }
+				const { title, message } = getNotificationMessage(park, occupancyData);
 				sendNotification(title, {
 					body: message,
-                    icon: '../P.png'
-                });
+					icon: '../P.png'
+				});
 
 				// Remove the park from the list of notified parks
-                notifiedOn.remove(parkId);
+				notifiedOn.remove(parkId);
 			}
-        })
-    }
+		});
+	}
 
 	async function loadParkingOccupancy() {
         const reduced = parkingLots.map((park) => ({id: park.id, freeSpaces: 0, maxSpaces: park.maxParkingSpaces}));
@@ -59,30 +65,27 @@
 		allOccupancy.forEach((park) => {
 			parkingOccupancy.change(park.id, park.freeSpaces);
         })
-
-		setTimeout(() => {
-			updateParkingOccupancy();
-		}, 5 * 1000);
     }
 
 	onMount(async () => {
-		// Load recursive functions
 		await loadParkingOccupancy();
+
 		watchId = watchPosition((coords) => {
 			currentPosition.set(coords);
 			geoPermission.set(true);
+			handleParkingNotifications(coords);
 			console.log("Current position:", coords);
         })
 
-		// Check if the user is near a parking lot
-		currentPosition.subscribe((coords) => {
-			handleParkingNotifications(coords);
-        })
+        intervalId = setInterval(() => {
+			if (document.visibilityState === "visible") updateParkingOccupancy();
+        }, 5 * 1000);
 	});
 
 	onDestroy(() => {
 		if (typeof window !== 'undefined') {
-			window.navigator.geolocation.clearWatch(watchId);
+			if (watchId) window.navigator.geolocation.clearWatch(watchId);
+			clearInterval(intervalId);
 		}
 	})
 </script>

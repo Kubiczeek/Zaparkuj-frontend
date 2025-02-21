@@ -3,7 +3,7 @@ export const getColorByOccupancy = (freeSpace, maxSpace) => {
 		return "red";
 	}
 
-	if (freeSpace < maxSpace / 10) {
+	if (freeSpace < Math.min(10, maxSpace / 5)) {
 		return "orange";
 	}
 
