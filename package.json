@@ -4,10 +4,11 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite dev",
+		"dev": "pnpm run image-exports && vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''"
+		"prepare": "svelte-kit sync || echo ''",
+		"image-exports": "node src/lib/assets/generate_exports.js"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^4.0.0",

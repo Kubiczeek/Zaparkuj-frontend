@@ -1,15 +1,5 @@
 import { writable } from "svelte/store";
 
-function createCurrentPark() {
-	const { subscribe, set, update } = writable(null);
-
-	return {
-		subscribe,
-		set: (position) => set(position),
-		update: (position) => update(() => position),
-	};
-}
-
 function createBoolean() {
 	const { subscribe, set, update } = writable(false);
 
@@ -29,13 +19,12 @@ function createParkingOccupancy() {
 		subscribe,
 		set: (position) => set(position),
 		update: (position) => update(() => position),
-		change: (id, freeSpaces, maxSpaces) => update((n) => {
+		change: (id, freeSpaces) => update((n) => {
 			const park = n.find((i) => i.id === id);
 			if (park) {
 				park.freeSpaces = freeSpaces;
-				park.maxSpaces = maxSpaces;
 			} else {
-				n.push({ id: id, freeSpaces: freeSpaces, maxSpaces: maxSpaces });
+				n.push({ id: id, freeSpaces: freeSpaces });
 			}
 			return n;
 		}),
@@ -43,5 +32,5 @@ function createParkingOccupancy() {
 }
 
 export const showPark = createBoolean();
-export const currentPark = createCurrentPark();
+export const currentPark = writable(null);
 export const parkingOccupancy = createParkingOccupancy();

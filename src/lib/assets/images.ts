@@ -1,0 +1,1 @@
+export { default as magnifier } from './Magnifier.svg';

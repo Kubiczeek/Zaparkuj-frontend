@@ -1,14 +1,5 @@
 import { writable } from "svelte/store";
 
-function createCurrentPosition() {
-	  const { subscribe, set, update } = writable(null);
-
-  return {
-	subscribe,
-	set: (position) => set(position),
-	update: (position) => update(() => position),
-  };
-}
-
-export const currentPosition = createCurrentPosition();
-export const debugPosition = createCurrentPosition();
+export const currentPosition = writable([49.6069, 15.5793]);
+export const geoPermission = writable(false);
+export const debugPosition = writable(null);

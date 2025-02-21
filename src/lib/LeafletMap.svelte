@@ -4,14 +4,16 @@
 	import {currentPosition, debugPosition} from "$lib/stores/currentPosition.js";
 	import {currentPark, parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
 	import parkingLots from "$lib/parkingLots/data.json";
-	import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
 	import {getColorByOccupancy} from "$lib/actions/getColorByOccupancy.js";
+	import {mapBounds, polygons} from "$lib/stores/map.js";
 
 	let mapContainer;
+	let initialized = false;
 	let map;
 	let coords = [-1, -1];
-	const polygons = [];
+	let currentMarker;
 	const ZOOM = 17;
+	const DEFAULT_COORDS = [49.6069, 15.5793];
 
 	/**
      * Create a custom marker with an image.
@@ -26,7 +28,6 @@
 			iconAnchor: [12, 41],
 			popupAnchor: [1, -34],
 			shadowSize: [41, 41],
-			shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png'
 		};
 
 		const customIcon = L.icon({
@@ -58,7 +59,7 @@
      * @param {Object} parkingLotDetails - Details of the parking lot.
      */
 	function createParkingLot(parkingLotDetails) {
-		const parkingLot = L.polygon(parkingLotDetails.polygon, {color: getColorByOccupancy(parkingLotDetails.freeParkingSpaces, parkingLotDetails.maxParkingSpaces)}).addTo(map);
+		const parkingLot = L.polygon(parkingLotDetails.polygon, {color: getColorByOccupancy(parkingLotDetails?.freeParkingSpaces, parkingLotDetails?.maxParkingSpaces)}).addTo(map);
         const parkingLotMarker = createCustomMarker(parkingLotDetails.center, '../P.png', {
 	        iconSize: [22, 30],
 	        iconAnchor: [11, 30],
@@ -69,49 +70,19 @@
 			currentPark.set(parkingLotDetails);
         }
 
-		polygons.push({id: parkingLotDetails.id, polygon: parkingLot});
+		polygons.add(parkingLotDetails.id, parkingLot)
 
 		parkingLotMarker.on('click', handleParkingLotClick);
 		parkingLot.on('click', handleParkingLotClick);
     }
 
-	async function autoFetchOccupancy() {
-		async function getCurrentOccupancy(id) {
-			const response = await fetch(`http://127.0.0.1:8000/api/v1/parking-occupancy/${id}`, {
-				method: 'GET',
-				headers: {
-					'Authorization': 'Basic ' + btoa('kubiczeek:xvylUhi&]%,WH@1')
-				}
-			});
-
-			if (!response.ok) {
-				throw new Error('Failed to fetch data');
-			}
-
-			const data = await response.json();
-			// console.log(data);
-
-			return data.vehicle_count;
-		}
-
-		for (const park of parkingLots) {
-			try {
-				const occupancy = await getCurrentOccupancy(park.id);
-				const freeSpaces = park.maxParkingSpaces - occupancy;
-				parkingOccupancy.change(park.id, freeSpaces, park.maxParkingSpaces);
-			} catch (error) {
-				console.error(`Error fetching occupancy for park ${park.id}:`, error);
-			}
-		}
-
-		polygons.forEach((pLot) => {
+	function updatePolygonColor() {
+		$polygons.forEach((pLot) => {
 			const find = $parkingOccupancy.find((pOcc) => pOcc.id === pLot.id);
 			if (find) {
 				pLot.polygon.setStyle({color: getColorByOccupancy(find.freeSpaces, find.maxSpaces)});
 			}
 		});
-
-		setTimeout(autoFetchOccupancy, 5000);
 	}
 
 	onMount(async () => {
@@ -119,24 +90,55 @@
 			try {
 				const leaflet = await import('leaflet');
 
-				coords = await getCurrentPosition();
-				currentPosition.set(coords);
-
-				map = leaflet.map(mapContainer).setView(coords, ZOOM);
+				map = leaflet.map(mapContainer, {zoomControl: false}).setView(DEFAULT_COORDS, ZOOM);
 
 				leaflet.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-					attribution: '© OpenStreetMap contributors'
+					attribution: '© OpenStreetMap contributors',
+                    maxZoom: 18
 				}).addTo(map);
 
+				currentMarker = createCustomMarker(coords, '../current.png', {
+					iconSize: [66, 66],
+                    iconAnchor: [33, 33],
+                }).addTo(map);
+
                 parkingLots.forEach(createParkingLot);
-				createDevMarker();
+				// createDevMarker();
 			} catch (error) {
 				console.error("Error getting location:", error.message);
 				map.setView([0, 0], 2);
 			}
 		}
 
-        autoFetchOccupancy();
+		mapBounds.subscribe((bounds) => {
+			if (bounds && map) {
+				map.fitBounds(bounds, {
+					padding: [50, 50],
+					maxZoom: 18,
+					animate: true,
+					duration: 1
+				});
+			}
+		});
+
+		currentPosition.subscribe((coords) => {
+			if (map && coords) {
+				currentMarker.setLatLng(coords);
+
+				if (!initialized) {
+                    map.setView(coords, ZOOM);
+					currentMarker = createCustomMarker(coords, '../current.png', {
+						iconSize: [66, 66],
+						iconAnchor: [33, 33],
+					}).addTo(map);
+                    initialized = true;
+                }
+			}
+        });
+
+		parkingOccupancy.subscribe(() => {
+			updatePolygonColor();
+        });
 	});
 
 	onDestroy(() => {

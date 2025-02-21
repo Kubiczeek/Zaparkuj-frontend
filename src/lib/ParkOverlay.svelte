@@ -5,23 +5,14 @@
     import {getDistanceFromLatLonInKm} from "$lib/actions/calculateHaversin.js";
     import {onMount} from "svelte";
     import {currentPark, parkingOccupancy, showPark} from "$lib/stores/parkingLot.js";
-    import {getCurrentPosition} from "$lib/actions/getCurrentPosition.js";
-    import {debugPosition} from "$lib/stores/currentPosition.js";
+    import {currentPosition, geoPermission} from "$lib/stores/currentPosition.js";
     import {notifiedOn} from "$lib/stores/notifiedOn.js";
 
-	let coords = [-1, -1];
     let distance = $state(0);
 	let freeSpace = $state(0);
 
-	async function checkDistance() {
-        coords = $debugPosition;// await getCurrentPosition();
+	function checkDistance(coords) {
         distance = getDistanceFromLatLonInKm($currentPark.center[0], $currentPark.center[1], coords[0], coords[1]);
-		let clone = JSON.stringify($currentPark); // Clone the object
-		setTimeout(() => {
-			if ($showPark && clone === JSON.stringify($currentPark)) {
-                checkDistance();
-            }
-		}, 5 * 1000);
     }
 
     function calculateTime(distanceInMeters) {
@@ -57,6 +48,20 @@
 	    return timeInMinutes;
     }
 
+	function handleNotification() {
+		Notification.requestPermission().then(permission => {
+			if (permission === 'granted') {
+				if ($notifiedOn.includes($currentPark.id)) {
+					notifiedOn.remove($currentPark.id);
+				} else {
+					notifiedOn.add($currentPark.id);
+				}
+			} else {
+                alert('Notifikace nejsou povoleny.');
+            }
+		});
+    }
+
 	function getCurrentOccupancy(id) {
 		$parkingOccupancy.forEach((park) => {
 			if (park.id === id) {
@@ -74,7 +79,11 @@
     });
 
 	onMount(() => {
-		checkDistance();
+		currentPosition.subscribe((coords) => {
+            if (coords && $geoPermission) {
+                checkDistance(coords);
+            }
+        });
 		getCurrentOccupancy(1);
     });
 </script>
@@ -82,28 +91,30 @@
 <div class="container" use:clickOutside={{ callback: showPark.close }} transition:fly={{ y: 100, duration: 300 }}>
     <h3>Parkoviště - {$currentPark.name} <button class="close" aria-label="Close" onclick={showPark.close}>X</button></h3>
     <p>Aktuálně volných parkovacích míst: <ColorNumberText number={freeSpace} outOff={$currentPark.maxParkingSpaces} /></p>
-    <p>Vzdálenost: <strong>{Math.floor(distance * 1000)} metrů</strong></p>
-    <p>Očekávaný příjezd: <strong>{expectedArrival}</strong></p>
-    <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff={$currentPark.maxParkingSpaces} /></p>
-<!--    <p>Počet míst pro invalidy: <ColorNumberText number={$currentPark.freeHandicappedSpaces} outOff={$currentPark.maxHandicappedSpaces} /></p>-->
-<!--    <p>Očekávaný počet volných míst pro invalidy po příjezdu: <ColorNumberText number="2" outOff={$currentPark.maxHandicappedSpaces} /></p>-->
-    <div class="prices">
-        <p>Parkovné ({$currentPark.paidTime}):</p>
-        <div class="list">
-            {#each $currentPark.prices as price}
-                <p>{price.time} - {price.price} Kč</p>
-            {/each}
+    {#if $geoPermission}
+        <p>Vzdálenost: <strong>{Math.floor(distance * 1000)} metrů</strong></p>
+        <p>Očekávaný příjezd: <strong>{expectedArrival}</strong></p>
+        <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff={$currentPark.maxParkingSpaces} /></p>
+        <div class="prices">
+            <p>Parkovné ({$currentPark.paidTime}):</p>
+            <div class="list">
+                {#each $currentPark.prices as price}
+                    <p>{price.time} - {price.price} Kč</p>
+                {/each}
+            </div>
         </div>
-    </div>
-    <button class="primary-btn" onclick={() => {
-		if ($notifiedOn.includes($currentPark.id)) {
-			console.log('Removing', $currentPark.id);
-			notifiedOn.remove($currentPark.id);
-		} else {
-			console.log('Adding', $currentPark.id);
-			notifiedOn.add($currentPark.id);
-		}
-    }}>
+    {:else}
+        <div class="prices">
+            <p>Parkovné ({$currentPark.paidTime}):</p>
+            <div class="list">
+                {#each $currentPark.prices as price}
+                    <p>{price.time} - {price.price} Kč</p>
+                {/each}
+            </div>
+        </div>
+        <strong>Pro zobrazení vzdálenosti, očekávaného příjezdu a předpokládáané obsazenosti povolte polohu.</strong>
+    {/if}
+    <button class="primary-btn" onclick={handleNotification}>
         {#if $notifiedOn.includes($currentPark.id)}
             Zrušit oznámení
         {:else}
