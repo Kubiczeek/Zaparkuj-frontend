@@ -19,10 +19,10 @@
 	function getNotificationMessage(park, occupancyData) {
 		let title = "";
 		let message = "";
-		if (occupancyData.freeSpaces === 0) {
+		if (occupancyData.occupancy === occupancyData.maxSpaces) {
 			title = `Parkoviště plně obsazeno!`;
 			message = `Vámi zvolené parkoviště je plně obsazeno. Prosím, vyhledejte jiné.`;
-		} else if (occupancyData.freeSpaces <= Math.min(10, occupancyData.maxSpaces / 5)) {
+		} else if ((occupancyData.maxSpaces-occupancyData.occupancy) <= Math.min(10, occupancyData.maxSpaces / 5)) {
 			title = `Parkoviště je skoro plné.`;
 			message = `Vámi zvolené parkoviště má volných posledních pár parkovacích míst.`;
 		} else {
@@ -51,7 +51,7 @@
 	}
 
 	async function loadParkingOccupancy() {
-        const reduced = parkingLots.map((park) => ({id: park.id, freeSpaces: 0, maxSpaces: park.maxParkingSpaces}));
+        const reduced = parkingLots.map((park) => ({id: park.id, occupancy: 0, maxSpaces: park.maxParkingSpaces}));
 		parkingOccupancy.set(reduced);
 
 		await updateParkingOccupancy();
@@ -60,10 +60,10 @@
 	async function updateParkingOccupancy() {
 		const parkingLotIds = getAllParkingLotIds();
 
-		const allOccupancy = await Promise.all(parkingLotIds.map(async (id) => ({id: id, freeSpaces: await getCurrentOccupancy(id)})));
+		const allOccupancy = await Promise.all(parkingLotIds.map(async (id) => ({id: id, occupancy: await getCurrentOccupancy(id)})));
 
 		allOccupancy.forEach((park) => {
-			parkingOccupancy.change(park.id, park.freeSpaces);
+			parkingOccupancy.change(park.id, park.occupancy);
         })
     }
 
@@ -74,7 +74,6 @@
 			currentPosition.set(coords);
 			geoPermission.set(true);
 			handleParkingNotifications(coords);
-			console.log("Current position:", coords);
         })
 
         intervalId = setInterval(() => {

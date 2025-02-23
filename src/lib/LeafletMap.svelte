@@ -68,7 +68,7 @@
 		$polygons.forEach((pLot) => {
 			const find = $parkingOccupancy.find((pOcc) => pOcc.id === pLot.id);
 			if (find) {
-				pLot.polygon.setStyle({color: getColorByOccupancy(find.freeSpaces, find.maxSpaces)});
+				pLot.polygon.setStyle({color: getColorByOccupancy(find.maxSpaces-find.occupancy, find.maxSpaces)});
 			}
 		});
 	}

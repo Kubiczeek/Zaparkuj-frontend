@@ -19,12 +19,12 @@ function createParkingOccupancy() {
 		subscribe,
 		set: (position) => set(position),
 		update: (position) => update(() => position),
-		change: (id, freeSpaces) => update((n) => {
+		change: (id, occupancy) => update((n) => {
 			const park = n.find((i) => i.id === id);
 			if (park) {
-				park.freeSpaces = freeSpaces;
+				park.occupancy = occupancy;
 			} else {
-				n.push({ id: id, freeSpaces: freeSpaces });
+				n.push({ id: id, occupancy: occupancy });
 			}
 			return n;
 		}),

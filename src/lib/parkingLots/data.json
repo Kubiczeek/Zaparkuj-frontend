@@ -2,7 +2,7 @@
   {
     "id": 1,
     "name": "GHB - Učitelé",
-    "maxParkingSpaces": 90,
+    "maxParkingSpaces": 17,
     "maxHandicappedSpaces": 2,
     "paidTime": "Po-Pá: 7-17",
     "prices": [

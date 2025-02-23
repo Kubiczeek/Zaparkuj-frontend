@@ -9,7 +9,8 @@
     import {notifiedOn} from "$lib/stores/notifiedOn.js";
 
     let distance = $state(0);
-	let freeSpace = $state(0);
+	let occupancy = $state(0);
+	let expectedOccupancy = $state(0);
 
 	let unsubscribes = [];
 
@@ -29,17 +30,28 @@
 
     function getCurrentOccupancy(id) {
 	    const park = $parkingOccupancy.find(park => park.id === id);
-	    freeSpace = park ? park.freeSpaces : 0;
+	    occupancy = park ? park.occupancy : 0;
     }
 
-
     let expectedArrival = $derived.by(() => {
-		const now = new Date();
-		const travelTime = calculateTime(distance * 1000)
-		const arrival = new Date(now.getTime() + travelTime * 60 * 1000);
-		// Return the time in the format HH:MM
-        return `${arrival.getHours().toString().padStart(2, '0')}:${arrival.getMinutes().toString().padStart(2, '0')}`;
+	    const now = new Date();
+	    const travelTime = calculateTime(distance * 1000)
+	    const arrival = new Date(now.getTime() + travelTime * 60 * 1000);
+	    // Return the time in the format HH:MM
+	    return `${arrival.getHours().toString().padStart(2, '0')}:${arrival.getMinutes().toString().padStart(2, '0')}`;
     });
+
+	async function getExpectedOccupancy(time) {
+		return await fetch(`http://127.0.0.1:8000/api/v1/parking-occupancy/${$currentPark.id}/history?time_arrival=${time}`, {
+			method: 'GET',
+			headers: {
+				'Authorization': 'Basic ' + btoa('kubiczeek:xvylUhi&]%,WH@1')
+			}
+		})
+        .then(response => response.json())
+        .then(data => data.expected_occupancy)
+        .catch(err => console.error(err));
+    }
 
 	onMount(() => {
 		unsubscribes.push(currentPosition.subscribe((coords) => {
@@ -47,6 +59,10 @@
 	            distance = getDistanceFromLatLonInKm($currentPark.center[0], $currentPark.center[1], coords[0], coords[1]);
             }
         }));
+		unsubscribes.push(currentPark.subscribe(async () => {
+			expectedOccupancy = await getExpectedOccupancy(expectedArrival);
+        }));
+
 		getCurrentOccupancy($currentPark.id);
     });
 
@@ -57,11 +73,11 @@
 
 <div class="container" use:clickOutside={{ callback: showPark.close }} transition:fly={{ y: 100, duration: 300 }}>
     <h3>Parkoviště - {$currentPark.name} <button class="close" aria-label="Close" onclick={showPark.close}>X</button></h3>
-    <p>Aktuálně volných parkovacích míst: <ColorNumberText number={freeSpace} outOff={$currentPark.maxParkingSpaces} /></p>
+    <p>Aktuálně volných parkovacích míst: <ColorNumberText number={$currentPark.maxParkingSpaces-occupancy} outOff={$currentPark.maxParkingSpaces} /></p>
     {#if $geoPermission}
         <p>Vzdálenost: <strong>{Math.floor(distance * 1000)} metrů</strong></p>
         <p>Očekávaný příjezd: <strong>{expectedArrival}</strong></p>
-        <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number="10" outOff={$currentPark.maxParkingSpaces} /></p>
+        <p>Očekávaný počet volných míst po příjezdu: <ColorNumberText number={$currentPark.maxParkingSpaces-expectedOccupancy} outOff={$currentPark.maxParkingSpaces} /></p>
         <div class="prices">
             <p>Parkovné ({$currentPark.paidTime}):</p>
             <div class="list">
