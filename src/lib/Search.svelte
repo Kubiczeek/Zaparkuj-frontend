@@ -4,16 +4,26 @@
 	import parkingLots from "$lib/parkingLots/data.json";
 	import { currentPark, showPark } from "$lib/stores/parkingLot.js";
 	import { getDistanceFromLatLonInKm } from "$lib/actions/calculateDistances.js";
+	import { goto } from "$app/navigation";
 	import {mapBounds, polygons} from "$lib/stores/map.js";
 	import {currentPosition} from "$lib/stores/currentPosition.js";
 	import {onMount} from "svelte";
 
 	let searchTerm = "";
 	let parkingLotsWithDistance = [];
+	const URL_PATH_PREFIX = "?SET_PATH=";
 
 	$: filteredParkingLots = parkingLotsWithDistance.filter(park =>
 		park.name.toLowerCase().includes(searchTerm.toLowerCase())
 	);
+
+	function handleKeydown(event) {
+		if (event.key === 'Enter' && searchTerm.startsWith(URL_PATH_PREFIX)) {
+			const path = searchTerm.substring(URL_PATH_PREFIX.length);
+			goto(path, { replaceState: true });
+			searchTerm = "";
+		}
+	}
 
 	function formatDistance(distance) {
 		return distance < 1 ? `${Math.round(distance * 1000)}m daleko` : `${distance.toFixed(1)} km daleko`;
@@ -47,7 +57,12 @@
 
 <div class="search-wrapper">
     <div class="search-bar">
-        <input type="text" bind:value={searchTerm} placeholder="Vyhledat parkoviště..." />
+        <input
+                type="text"
+                bind:value={searchTerm}
+                placeholder="Vyhledat parkoviště..."
+                onkeydown={handleKeydown}
+        />
         <img src={magnifier} alt="Search" class="search-icon" />
     </div>
 

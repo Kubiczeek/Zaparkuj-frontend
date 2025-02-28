@@ -1,15 +1,5 @@
 <script>
-    import {onMount} from "svelte";
-
-	onMount(() => {
-		if ('serviceWorker' in navigator) {
-			navigator.serviceWorker.register('/sw.js');
-		}
-    })
+    import "../app.css";
 </script>
 
 <slot></slot>
-
-<style>
-    @import '../app.css';
-</style>
