@@ -1,0 +1,14 @@
+{
+  "name": "Zaparkuj",
+  "description": "Monitoring a predikce obsazenosti parkovacích míst",
+  "display": "standalone",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
