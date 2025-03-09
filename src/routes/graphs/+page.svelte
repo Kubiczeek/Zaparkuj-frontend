@@ -91,16 +91,25 @@
 
 			const [identifier, day, time, occupancy] = values;
 
+			// Zpracování hodnoty occupancy
+			let occupancyValue = occupancy.trim();
+			if (occupancyValue === "None") {
+				occupancyValue = null;
+			} else {
+				occupancyValue = parseInt(occupancyValue, 10);
+			}
+
 			result.push({
 				identifier: identifier.trim(),
 				day: parseInt(day.trim(), 10),
 				time: time.trim(),
-				occupancy: parseInt(occupancy.trim(), 10)
+				occupancy: occupancyValue
 			});
 		}
 
 		return result;
 	}
+
 
 	function updateParkingIds(data) {
 		const uniqueIds = new Set();
@@ -218,6 +227,9 @@
 		const hourlyData = {};
 
 		data.forEach(item => {
+			// Přeskočit záznamy s hodnotou "None"
+			if (item.occupancy === "None" || item.occupancy === null) return;
+
 			const hour = parseInt(item.time.split(':')[0], 10);
 
 			if (!hourlyData[hour]) {
@@ -231,7 +243,7 @@
 			hourlyData[hour].count += 1;
 		});
 
-		// Calculate averages for each hour
+		// Výpočet průměrů pro každou hodinu
 		const result = {};
 		Object.keys(hourlyData).forEach(hour => {
 			result[hour] = Math.round(hourlyData[hour].sum / hourlyData[hour].count);
@@ -239,6 +251,7 @@
 
 		return result;
 	}
+
 </script>
 
 <div class="container">
@@ -291,7 +304,7 @@
                 <label for="parkingId">Parkoviště:</label>
                 <select id="parkingId" bind:value={selectedParkingId}>
                     {#each parkingIds as id}
-                        <option value={id}>{id}</option>
+                        <option disabled={id==="identifier"} value={id}>{id === "identifier" ? "Vyberte id parkoviště" : id}</option>
                     {/each}
                 </select>
             </div>

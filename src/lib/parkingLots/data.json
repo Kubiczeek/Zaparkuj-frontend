@@ -1,6 +1,7 @@
 [
   {
     "id": 1,
+    "url": "",
     "name": "GHB - Učitelé",
     "maxParkingSpaces": 17,
     "maxHandicappedSpaces": 2,
@@ -19,6 +20,7 @@
   },
   {
     "id": 2,
+    "url": "",
     "name": "Náměstí",
     "maxParkingSpaces": 30,
     "maxHandicappedSpaces": 4,

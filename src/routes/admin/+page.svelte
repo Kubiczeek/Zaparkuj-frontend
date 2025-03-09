@@ -1,9 +1,14 @@
 <script>
+    import { sha256 } from 'js-sha256';
+
     let password = $state("");
     let downloading = $state(false);
+	let showError = $state(false);
 
 	async function downloadCsv() {
-		if (password === "Hesloo1") {
+		const hashedPassword = sha256(password);
+
+		if (hashedPassword === "b451d0facdbb3a1952a6cf7b23f4057e453fbc755b7353f3ce38c7e1fd6399c7") { // Hash for "Hesloo1"
 			downloading = true;
 			const response = await fetch(`http://127.0.0.1:8000/api/v1/admin/csv`, {
 				method: 'GET',
@@ -29,6 +34,8 @@
             link.click();
             document.body.removeChild(link);
             downloading = false;
+        } else {
+			showError = true;
         }
     }
 </script>
@@ -36,7 +43,12 @@
 <div>
     <h1>Admin Page</h1>
     <p>Zadejte heslo pro stáhnutní statistik z parkovišť</p>
-    <input type="password" bind:value={password} placeholder="Heslo" />
+    {#if showError}
+        <label for="password" class="error">
+            Zadané heslo bylo nesprávné
+        </label>
+    {/if}
+    <input type="password" bind:value={password} placeholder="Heslo" onkeydown={() => showError = false}/>
     <button onclick={async () => await downloadCsv()}>{downloading ? "Stahuji..." : "Stáhnout"}</button>
     <a href="/">Návrat na hlavní stránku</a>
 </div>
@@ -71,12 +83,20 @@
         border-radius: 4px;
         font-size: 1rem;
         box-sizing: border-box;
+        transition: 150ms all;
     }
 
     input:focus {
         outline: none;
         border-color: var(--color-primary);
         box-shadow: 0 0 0 2px rgba(40, 127, 255, 0.2);
+    }
+
+    .error {
+        text-align: start;
+        font-weight: 700;
+        font-size: 0.8rem;
+        color: var(--color-red);
     }
 
     button {
